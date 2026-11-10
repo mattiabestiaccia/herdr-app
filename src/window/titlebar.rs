@@ -82,7 +82,7 @@ impl AppWindow {
             "titlebar": if self.titlebar() == Titlebar::Layout { "none" } else { "system" },
             "buttons": buttons,
             "maximized": window.is_maximized(),
-            "fullscreen": window.is_fullscreen(),
+            "fullscreen": window.is_fullscreen() || window.is_simple_fullscreen(),
             "active": self.window_active,
         })
     }
@@ -204,6 +204,7 @@ impl AppWindow {
                 window.remove_window();
             }
             "window.minimize" => window.minimize_window(),
+            "window.fullscreen" => window.toggle_fullscreen(),
             #[cfg(windows)]
             "window.maximize" => win::toggle_maximize(window),
             #[cfg(not(windows))]

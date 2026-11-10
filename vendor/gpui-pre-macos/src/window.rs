@@ -447,6 +447,11 @@ unsafe fn build_window_class(name: &'static str, superclass: &Class) -> *const C
             sel!(windowDidChangeOcclusionState:),
             window_did_change_occlusion_state as extern "C" fn(&Object, Sel, id),
         );
+        // HERDR: see `toggle_full_screen`.
+        decl.add_method(
+            sel!(toggleFullScreen:),
+            toggle_full_screen as extern "C" fn(&Object, Sel, id),
+        );
         decl.add_method(
             sel!(windowWillEnterFullScreen:),
             window_will_enter_fullscreen as extern "C" fn(&Object, Sel, id),
@@ -3023,6 +3028,38 @@ extern "C" fn window_did_change_occlusion_state(this: &Object, _: Sel, _: id) {
 extern "C" fn window_did_resize(this: &Object, _: Sel, _: id) {
     let window_state = unsafe { get_window_state(this) };
     window_state.as_ref().lock().move_traffic_light();
+}
+
+// HERDR: AppKit's full screen moves the window to a Space of its own, with
+// nothing behind it, so a see-through window would show black. A window that
+// is not opaque goes full screen on its current Space instead (borderless,
+// menu bar and Dock hidden), keeping the desktop behind it. The green button,
+// the menu item and `Window::toggle_fullscreen` all arrive here.
+extern "C" fn toggle_full_screen(this: &Object, _: Sel, sender: id) {
+    let window_state = unsafe { get_window_state(this) };
+    let simple = {
+        let lock = window_state.lock();
+        !lock.is_fullscreen()
+            && (lock.simple_fullscreen_state.is_some()
+                || lock.background_appearance != WindowBackgroundAppearance::Opaque)
+    };
+    if !simple {
+        unsafe {
+            let _: () = msg_send![super(this, class!(NSWindow)), toggleFullScreen: sender];
+        }
+        return;
+    }
+    let (native_window, native_view, plan) = {
+        let mut lock = window_state.lock();
+        (
+            lock.native_window,
+            lock.native_view.as_ptr() as id,
+            lock.toggle_simple_fullscreen(),
+        )
+    };
+    if let Some(plan) = plan {
+        unsafe { apply_simple_fullscreen_plan(native_window, native_view, plan) };
+    }
 }
 
 extern "C" fn window_will_enter_fullscreen(this: &Object, _: Sel, _: id) {

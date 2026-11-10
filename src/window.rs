@@ -3452,7 +3452,7 @@ impl AppWindow {
                 crate::update::relaunch();
                 cx.quit();
             }
-            "window.close" | "window.minimize" | "window.maximize" => return self.window_command(name, window, cx),
+            "window.close" | "window.minimize" | "window.maximize" | "window.fullscreen" => return self.window_command(name, window, cx),
             // Hiding apps is macOS's (bound natively there).
             "app.hide" | "app.hide_others" | "app.show_all" => return,
             other => {
@@ -4929,6 +4929,13 @@ impl Render for AppWindow {
         let tracker = self.float_tracker(cx);
         let win_tracker = self.window_tracker(cx);
         let pane_drag = self.pane_drag_layer(cx);
+        // Full screen keeps the desktop behind a see-through window (see the
+        // macOS toggleFullScreen: patch), or shows the layout's chosen image.
+        let s = settings::get();
+        let backdrop = (s.desktop_transparent() && (window.is_fullscreen() || window.is_simple_fullscreen()))
+            .then(|| s.fullscreen_image.clone())
+            .flatten();
+        let tint = c("background").opacity(s.workspace_opacity);
         div()
             .id("herdr")
             .track_focus(&self.focus)
@@ -4938,7 +4945,11 @@ impl Render for AppWindow {
             .relative()
             // Exactly one tint behind the workspace. The personal layout
             // removes intermediate backgrounds and paints its chrome solid.
-            .bg(c("background").opacity(settings::get().workspace_opacity))
+            .when(backdrop.is_none(), |d| d.bg(tint))
+            .when_some(backdrop, |d, image| {
+                d.child(img(image).absolute().top_0().left_0().size_full().object_fit(ObjectFit::Cover))
+                    .child(div().absolute().top_0().left_0().size_full().bg(tint))
+            })
             .text_color(c("foreground"))
             .font_family(settings::get().ui_font_family.clone())
             .on_action(cx.listener(|this, a: &ShellAction, w, cx| {

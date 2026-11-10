@@ -177,6 +177,10 @@ pub struct Look {
     /// One workspace tint; does not fade text or multiply terminal_opacity.
     #[serde(default, deserialize_with = "workspace_opacity", skip_serializing_if = "Option::is_none")]
     pub workspace_opacity: Option<f32>,
+    /// Full screen with a see-through background: this image (absolute, `~/`,
+    /// or relative to the app home) instead of the desktop. Read from the root.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fullscreen_image: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -821,6 +825,20 @@ mod tests {
             let back: Node = serde_json::from_value(serde_json::to_value(&n).unwrap()).unwrap();
             assert_eq!(back, n);
         }
+    }
+
+    #[test]
+    fn fullscreen_image_round_trips_and_is_absent_by_default() {
+        let n: Node = serde_json::from_str(include_str!("../defaults/layouts/main.json")).unwrap();
+        assert_eq!(n.look.fullscreen_image, None);
+        assert!(serde_json::to_value(&n).unwrap().get("fullscreen_image").is_none());
+        let n: Node = serde_json::from_str(r#"{"id":"root","type":"row","children":[],"background_mode":"transparent","fullscreen_image":"~/wall.png"}"#).unwrap();
+        assert_eq!(n.look.fullscreen_image.as_deref(), Some("~/wall.png"));
+        let back: Node = serde_json::from_value(serde_json::to_value(&n).unwrap()).unwrap();
+        assert_eq!(back, n);
+        assert_eq!(crate::settings::fullscreen_image_path("~/wall.png"), crate::mods::home().join("wall.png"));
+        assert_eq!(crate::settings::fullscreen_image_path("/abs/wall.png"), std::path::PathBuf::from("/abs/wall.png"));
+        assert_eq!(crate::settings::fullscreen_image_path("wall.png"), crate::mods::app_dir().join("wall.png"));
     }
 
     #[test]

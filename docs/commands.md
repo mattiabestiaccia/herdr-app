@@ -571,4 +571,10 @@ Maximize the window, or back.
 
 No arguments.
 
+## `window.fullscreen`
+
+Full screen, or back. On macOS a see-through window stays on its desktop.
+
+No arguments.
+
 [Back to Herdr](../README.md)

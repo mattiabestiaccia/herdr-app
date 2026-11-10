@@ -73,6 +73,21 @@ def set_background(mode, opacity, state=STATE):
     write_json(layout, value)
 
 
+def set_fullscreen_image(image, state=STATE):
+    """An image shown behind the workspace in full screen; None shows the desktop."""
+    env = prepare(state)
+    layout = Path(env["HERDR_APP_HOME"]) / f"layouts/{LAYOUT}.json"
+    value = json.loads(layout.read_text())
+    if image is None:
+        value.pop("fullscreen_image", None)
+    else:
+        path = Path(image).expanduser().resolve()
+        if not path.is_file():
+            raise ValueError(f"not a file: {path}")
+        value["fullscreen_image"] = str(path)
+    write_json(layout, value)
+
+
 def bundle(binary):
     if sys.platform != "darwin":
         raise ValueError("the prototype bundle requires macOS")
@@ -117,12 +132,16 @@ def main():
     select = sub.add_parser("set")
     select.add_argument("mode", choices=("opaque", "transparent", "blurred"))
     select.add_argument("opacity", type=float)
+    image = sub.add_parser("image", help="full-screen backdrop: an image path, or 'desktop'")
+    image.add_argument("path")
     cli = sub.add_parser("cli")
     cli.add_argument("args", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     binary = args.bin.resolve()
     if args.command == "set":
         set_background(args.mode, args.opacity)
+    elif args.command == "image":
+        set_fullscreen_image(None if args.path == "desktop" else args.path)
     elif args.command == "prepare":
         print(prepare()["HERDR_APP_HOME"])
     elif args.command == "bundle":

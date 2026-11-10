@@ -53,6 +53,25 @@ class PrototypeIsolation(unittest.TestCase):
             finally:
                 shutil.rmtree(env["XDG_RUNTIME_DIR"], ignore_errors=True)
 
+    def test_fullscreen_image_is_set_checked_and_cleared(self):
+        with tempfile.TemporaryDirectory() as folder:
+            state = Path(folder)
+            env = prototype.environment(state)
+            try:
+                picture = state / "wall.png"
+                picture.write_bytes(b"png")
+                prototype.set_fullscreen_image(str(picture), state)
+                path = state / "home/layouts/herdr-transparent.json"
+                self.assertEqual(json.loads(path.read_text())["fullscreen_image"], str(picture.resolve()))
+                before = path.read_bytes()
+                with self.assertRaises(ValueError):
+                    prototype.set_fullscreen_image(str(state / "missing.png"), state)
+                self.assertEqual(path.read_bytes(), before)
+                prototype.set_fullscreen_image(None, state)
+                self.assertNotIn("fullscreen_image", json.loads(path.read_text()))
+            finally:
+                shutil.rmtree(env["XDG_RUNTIME_DIR"], ignore_errors=True)
+
 
 if __name__ == "__main__":
     unittest.main()

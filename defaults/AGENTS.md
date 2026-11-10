@@ -351,6 +351,8 @@ layout's look and a block can differ:
   (a pane frame's, the layout's gradient) shows through its text.
 - Personal macOS transparency prototype: root `background_mode`
   (`opaque`, `transparent`, `blurred`) and `workspace_opacity` (0..1).
+  Full screen keeps the desktop behind; root `fullscreen_image` (absolute,
+  `~/`, or relative to the app home) shows that image there instead.
   See `personal/transparency/README.md` in the personal source checkout for
   isolation, background layering and the pending desktop acceptance checks.
 - Switching layouts switches the look. The theme menu changes the shown
@@ -639,7 +641,8 @@ The main ones:
   or replaced and a different core answers there, its sidebar offers Connect:
   explicitly forget the old identity and pair again with the same name and target.
   Other unreachable machines don't offer this.
-- Window: `window.minimize`, `window.maximize` (or back), `window.close`.
+- Window: `window.minimize`, `window.maximize` (or back), `window.fullscreen`
+  (or back), `window.close`.
 - macOS: `app.quit`, `app.hide`, `app.hide_others`, `app.show_all`.
 
 When the user runs a command without a required name (a key, a click), Herdr

@@ -493,6 +493,7 @@ pub struct Settings {
     pub terminal_opacity: f32,
     pub background_mode: crate::layout::BackgroundMode,
     pub workspace_opacity: f32,
+    pub fullscreen_image: Option<std::path::PathBuf>,
     pub clipboard_write: bool,
     pub minimum_contrast: f32,
     pub option_as_alt: OptionAsAlt,
@@ -537,11 +538,20 @@ impl Default for Settings {
             terminal_opacity: 1.0,
             background_mode: crate::layout::BackgroundMode::Opaque,
             workspace_opacity: 1.0,
+            fullscreen_image: None,
             clipboard_write: true,
             minimum_contrast: 1.0,
             option_as_alt: OptionAsAlt::Auto,
             sounds: Sounds::default(),
         }
+    }
+}
+
+/// `~/x` is in the home folder; a relative path is in the app home.
+pub fn fullscreen_image_path(image: &str) -> std::path::PathBuf {
+    match image.strip_prefix("~/") {
+        Some(rest) => crate::mods::home().join(rest),
+        None => crate::mods::app_dir().join(image),
     }
 }
 
@@ -581,6 +591,7 @@ impl Settings {
             terminal_opacity: look.terminal_opacity.unwrap_or(1.0).clamp(0.0, 1.0),
             background_mode: if cfg!(target_os = "macos") { look.background_mode.unwrap_or_default() } else { crate::layout::BackgroundMode::Opaque },
             workspace_opacity: look.workspace_alpha(cfg!(target_os = "macos")),
+            fullscreen_image: look.fullscreen_image.as_deref().map(fullscreen_image_path),
             sounds: person.sounds.clone(),
             clipboard_write: person.clipboard_write,
             minimum_contrast: person.minimum_contrast,

@@ -53,6 +53,28 @@ resize, fullscreen, temi chiari/scuri e cambio layout. Chiudere e riaprire la
 demo per controllare la persistenza. Occorre osservare lo schermo macOS:
 la cattura interna dell'app non prova la composizione con il desktop.
 
+## Schermo intero
+
+Lo schermo intero nativo di macOS sposta la finestra in uno Space dedicato,
+dove dietro non c'è la scrivania. Con modalità `transparent` o `blurred`
+la patch `HERDR:` di `toggleFullScreen:` in `vendor/gpui-pre-macos` usa invece
+uno schermo intero sullo Space corrente: finestra senza bordi a tutto
+schermo, barra dei menu e Dock nascosti. Vale per il pulsante verde,
+`ctrl-cmd-f` e il comando `window.fullscreen`; per uscire si usa
+`ctrl-cmd-f`, perché i pulsanti della finestra spariscono. In modalità
+opaca resta lo schermo intero nativo.
+
+Al posto della scrivania si può mostrare un'immagine, solo a schermo intero:
+
+```sh
+python3 ~/personal/tools/herdr-transparency.py image ~/Pictures/sfondo.jpg
+python3 ~/personal/tools/herdr-transparency.py image desktop
+```
+
+La chiave radice è `fullscreen_image` (assoluta, `~/` o relativa alla home
+dell'app). L'immagine copre l'area (`cover`) sotto la tinta del workspace;
+il blur di macOS non la sfoca, perché sta dentro la finestra.
+
 ## Implementazione e limiti
 
 Sul nodo radice del layout:
