@@ -171,6 +171,41 @@ pub struct Look {
     /// 0..1: below 1, what's behind a terminal shows through its background.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub terminal_opacity: Option<f32>,
+    /// macOS window composition, read from the layout root only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background_mode: Option<BackgroundMode>,
+    /// One workspace tint; does not fade text or multiply terminal_opacity.
+    #[serde(default, deserialize_with = "workspace_opacity", skip_serializing_if = "Option::is_none")]
+    pub workspace_opacity: Option<f32>,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BackgroundMode {
+    #[default]
+    Opaque,
+    Transparent,
+    Blurred,
+}
+
+fn workspace_opacity<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<f32>, D::Error> {
+    let value = Option::<f32>::deserialize(d)?;
+    match value {
+        Some(v) if !v.is_finite() || !(0.0..=1.0).contains(&v) => {
+            Err(serde::de::Error::custom("workspace_opacity must be a finite number in 0..1"))
+        }
+        _ => Ok(value),
+    }
+}
+
+impl Look {
+    pub fn desktop_transparent(&self, macos: bool) -> bool {
+        macos && matches!(self.background_mode, Some(BackgroundMode::Transparent | BackgroundMode::Blurred))
+    }
+
+    pub fn workspace_alpha(&self, macos: bool) -> f32 {
+        if self.desktop_transparent(macos) { self.workspace_opacity.unwrap_or(1.0) } else { 1.0 }
+    }
 }
 
 /// A layout's theme: one name, or a pair the system's appearance (or the
@@ -737,6 +772,72 @@ pub fn snap(x: f32, y: f32, w: f32, h: f32) -> (Edge, Align) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn desktop_background_defaults_preserve_existing_layouts() {
+        let n: Node = serde_json::from_str(include_str!("../defaults/layouts/main.json")).unwrap();
+        assert_eq!(n.look.background_mode, None);
+        assert_eq!(n.look.workspace_opacity, None);
+        assert!(!n.look.desktop_transparent(true));
+        assert_eq!(n.look.workspace_alpha(true), 1.0);
+        let encoded = serde_json::to_value(&n).unwrap();
+        assert!(encoded.get("background_mode").is_none());
+        assert!(encoded.get("workspace_opacity").is_none());
+        for json in [include_str!("../defaults/layouts/terminals.json"), include_str!("../defaults/layouts/win98.json")] {
+            let n: Node = serde_json::from_str(json).unwrap();
+            assert!(!n.look.desktop_transparent(true));
+            assert_eq!(n.look.workspace_alpha(true), 1.0);
+        }
+        let n: Node = serde_json::from_str(r#"{"id":"root","type":"row","children":[],"background_mode":"transparent"}"#).unwrap();
+        assert_eq!(n.look.workspace_alpha(true), 1.0);
+    }
+
+    #[test]
+    fn personal_transparency_layout_has_one_backdrop_and_solid_chrome() {
+        let n: Node = serde_json::from_str(include_str!("../personal/transparency/herdr-transparent.json")).unwrap();
+        assert_eq!(n.look.background_mode, Some(BackgroundMode::Transparent));
+        assert_eq!(n.look.workspace_opacity, Some(0.85));
+        assert!(n.background.is_none());
+        assert!(n.find("work-body").unwrap().background.is_none());
+        match n.find("main").unwrap().content().unwrap() {
+            Content::Context { pane: Some(frame), .. } => assert!(frame.background.is_none()),
+            _ => panic!("expected a framed active tab"),
+        }
+        for id in ["sidebar", "tabs", "status", "panel"] {
+            assert_eq!(n.find(id).unwrap().background, Some(Background::Color("chrome".into())));
+        }
+    }
+
+    #[test]
+    fn desktop_background_round_trips_and_is_macos_only() {
+        for mode in ["transparent", "blurred"] {
+            let json = format!(r#"{{"id":"root","type":"row","children":[],"background_mode":"{mode}","workspace_opacity":0.85,"terminal_opacity":0.65}}"#);
+            let n: Node = serde_json::from_str(&json).unwrap();
+            assert!(n.look.desktop_transparent(true));
+            assert_eq!(n.look.workspace_alpha(true), 0.85);
+            assert!(!n.look.desktop_transparent(false));
+            assert_eq!(n.look.workspace_alpha(false), 1.0);
+            assert_eq!(n.look.terminal_opacity, Some(0.65));
+            let back: Node = serde_json::from_value(serde_json::to_value(&n).unwrap()).unwrap();
+            assert_eq!(back, n);
+        }
+    }
+
+    #[test]
+    fn desktop_background_rejects_invalid_configuration() {
+        for value in ["-0.01", "1.01", "1e100", "\"0.85\""] {
+            let json = format!(r#"{{"id":"root","type":"row","children":[],"workspace_opacity":{value}}}"#);
+            assert!(serde_json::from_str::<Node>(&json).is_err(), "accepted {value}");
+        }
+        assert!(serde_json::from_str::<Node>(r#"{"id":"root","type":"row","children":[],"background_mode":"glass"}"#).is_err());
+        for alpha in [0.0, 0.65, 0.85, 1.0] {
+            let json = format!(r#"{{"id":"root","type":"row","children":[],"background_mode":"blurred","workspace_opacity":{alpha}}}"#);
+            let n: Node = serde_json::from_str(&json).unwrap();
+            assert_eq!(n.look.workspace_alpha(true), alpha);
+        }
+        let n: Node = serde_json::from_str(r#"{"id":"root","type":"row","children":[],"background_mode":"opaque","workspace_opacity":0.65}"#).unwrap();
+        assert_eq!(n.look.workspace_alpha(true), 1.0);
+    }
 
     #[test]
     fn floats_snap_to_the_nearest_edge_and_third() {

@@ -1850,7 +1850,11 @@ fn paint_grid(bounds: Bounds<Pixels>, grid: &Rc<RefCell<Grid>>, focused: bool, w
     let marked = g.marked.clone();
     drop(g);
 
-    window.paint_quad(fill(bounds, hsla(frame.bg).opacity(crate::settings::get().terminal_opacity)));
+    // In desktop mode the window owns the sole backdrop; only explicitly
+    // colored cells are painted below. Two alpha fills would compound.
+    if !crate::settings::get().desktop_transparent() {
+        window.paint_quad(fill(bounds, hsla(frame.bg).opacity(crate::settings::get().terminal_opacity)));
+    }
     let at = |x: usize, y: usize| origin + point(cell.width * x as f32, cell.height * y as f32);
     // Edges round to device pixels, so cells side by side meet without seams.
     let snap_box = |b: Bounds<Pixels>| {
@@ -2153,7 +2157,9 @@ impl Render for TerminalView {
             .size_full()
             .relative()
             // Below 1, the layout's background shows through (cells a program colors stay solid).
-            .bg(hsla(vt::theme().bg).opacity(crate::settings::get().terminal_opacity))
+            .when(!crate::settings::get().desktop_transparent(), |d| {
+                d.bg(hsla(vt::theme().bg).opacity(crate::settings::get().terminal_opacity))
+            })
             .on_action(cx.listener(|this, a: &gpui_shell::action::ShellAction, window, cx| {
                 if this.find_field_focused(window, cx) {
                     let action: Option<Box<dyn gpui::Action>> = match a.id() {

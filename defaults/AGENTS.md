@@ -349,6 +349,10 @@ layout's look and a block can differ:
   terminal columns do not change. Hidden in alternate-screen programs.
 - `terminal_opacity` (0..1): below 1, the background behind a terminal
   (a pane frame's, the layout's gradient) shows through its text.
+- Personal macOS transparency prototype: root `background_mode`
+  (`opaque`, `transparent`, `blurred`) and `workspace_opacity` (0..1).
+  See `personal/transparency/README.md` in the personal source checkout for
+  isolation, background layering and the pending desktop acceptance checks.
 - Switching layouts switches the look. The theme menu changes the shown
   layout's root `theme`.
 - Today only the root's look applies; a block's own look is coming.

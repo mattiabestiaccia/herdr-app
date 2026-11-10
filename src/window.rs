@@ -854,6 +854,14 @@ impl AppWindow {
             mods::note_fonts(cx);
         }
         let s = settings::Settings::compose(&self.person, &self.chrome.look, self.system_dark);
+        // Personal macOS prototype: use the backend's native composition,
+        // without changing the renderer or fading the window's contents.
+        #[cfg(target_os = "macos")]
+        window.set_background_appearance(match s.background_mode {
+            crate::layout::BackgroundMode::Opaque => WindowBackgroundAppearance::Opaque,
+            crate::layout::BackgroundMode::Transparent => WindowBackgroundAppearance::Transparent,
+            crate::layout::BackgroundMode::Blurred => WindowBackgroundAppearance::Blurred,
+        });
         let problems = s.problems();
         if !problems.is_empty() {
             self.report_layout(&problems.join("; "));
@@ -4928,7 +4936,9 @@ impl Render for AppWindow {
             .key_context(format!("Herdr layout = {}", self.layout_name).as_str())
             .size_full()
             .relative()
-            .bg(c("background"))
+            // Exactly one tint behind the workspace. The personal layout
+            // removes intermediate backgrounds and paints its chrome solid.
+            .bg(c("background").opacity(settings::get().workspace_opacity))
             .text_color(c("foreground"))
             .font_family(settings::get().ui_font_family.clone())
             .on_action(cx.listener(|this, a: &ShellAction, w, cx| {

@@ -491,6 +491,8 @@ pub struct Settings {
     pub terminal_padding: [f32; 2],
     /// 0..1: below 1, what's behind a terminal shows through.
     pub terminal_opacity: f32,
+    pub background_mode: crate::layout::BackgroundMode,
+    pub workspace_opacity: f32,
     pub clipboard_write: bool,
     pub minimum_contrast: f32,
     pub option_as_alt: OptionAsAlt,
@@ -533,6 +535,8 @@ impl Default for Settings {
             pane_scrollbars: true,
             terminal_padding: [10.0, 6.0],
             terminal_opacity: 1.0,
+            background_mode: crate::layout::BackgroundMode::Opaque,
+            workspace_opacity: 1.0,
             clipboard_write: true,
             minimum_contrast: 1.0,
             option_as_alt: OptionAsAlt::Auto,
@@ -542,6 +546,10 @@ impl Default for Settings {
 }
 
 impl Settings {
+    pub fn desktop_transparent(&self) -> bool {
+        self.background_mode != crate::layout::BackgroundMode::Opaque
+    }
+
     pub fn compose(person: &Person, look: &crate::layout::Look, system_dark: bool) -> Settings {
         let d = Settings::default();
         let mut colors = person.colors.clone();
@@ -571,6 +579,8 @@ impl Settings {
             pane_scrollbars: person.pane_scrollbars,
             terminal_padding: look.terminal_padding.unwrap_or(d.terminal_padding),
             terminal_opacity: look.terminal_opacity.unwrap_or(1.0).clamp(0.0, 1.0),
+            background_mode: if cfg!(target_os = "macos") { look.background_mode.unwrap_or_default() } else { crate::layout::BackgroundMode::Opaque },
+            workspace_opacity: look.workspace_alpha(cfg!(target_os = "macos")),
             sounds: person.sounds.clone(),
             clipboard_write: person.clipboard_write,
             minimum_contrast: person.minimum_contrast,
