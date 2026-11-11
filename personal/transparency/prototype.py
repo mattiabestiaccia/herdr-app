@@ -63,20 +63,29 @@ def prepare(state=STATE):
     return env
 
 
-def set_background(mode, opacity, state=STATE):
+def layout_file(state, home):
+    """The transparent layout: in an app home given directly (the real one),
+    or in the isolated prototype state, prepared on first use."""
+    if home is not None:
+        path = Path(home).expanduser() / f"layouts/{LAYOUT}.json"
+        if not path.exists():
+            write_json(path, json.loads((Path(__file__).parent / f"{LAYOUT}.json").read_text()))
+        return path
+    return Path(prepare(state)["HERDR_APP_HOME"]) / f"layouts/{LAYOUT}.json"
+
+
+def set_background(mode, opacity, state=STATE, home=None):
     if mode not in ("opaque", "transparent", "blurred") or not math.isfinite(opacity) or not 0 <= opacity <= 1:
         raise ValueError("mode: opaque/transparent/blurred; opacity: finite number in 0..1")
-    env = prepare(state)
-    layout = Path(env["HERDR_APP_HOME"]) / f"layouts/{LAYOUT}.json"
+    layout = layout_file(state, home)
     value = json.loads(layout.read_text())
     value.update(background_mode=mode, workspace_opacity=opacity)
     write_json(layout, value)
 
 
-def set_fullscreen_image(image, state=STATE):
+def set_fullscreen_image(image, state=STATE, home=None):
     """An image shown behind the workspace in full screen; None shows the desktop."""
-    env = prepare(state)
-    layout = Path(env["HERDR_APP_HOME"]) / f"layouts/{LAYOUT}.json"
+    layout = layout_file(state, home)
     value = json.loads(layout.read_text())
     if image is None:
         value.pop("fullscreen_image", None)
@@ -125,6 +134,8 @@ def bundle(binary):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bin", type=Path, default=ROOT / "target/debug/herdr-app")
+    parser.add_argument("--home", type=Path,
+                        help="edit this app home (e.g. ~/.config/herdr-app) instead of the prototype's")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("prepare")
     sub.add_parser("run")
@@ -139,9 +150,9 @@ def main():
     args = parser.parse_args()
     binary = args.bin.resolve()
     if args.command == "set":
-        set_background(args.mode, args.opacity)
+        set_background(args.mode, args.opacity, home=args.home)
     elif args.command == "image":
-        set_fullscreen_image(None if args.path == "desktop" else args.path)
+        set_fullscreen_image(None if args.path == "desktop" else args.path, home=args.home)
     elif args.command == "prepare":
         print(prepare()["HERDR_APP_HOME"])
     elif args.command == "bundle":

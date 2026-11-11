@@ -72,6 +72,15 @@ class PrototypeIsolation(unittest.TestCase):
             finally:
                 shutil.rmtree(env["XDG_RUNTIME_DIR"], ignore_errors=True)
 
+    def test_real_home_is_edited_in_place_without_prototype_state(self):
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder) / "herdr-app"
+            prototype.set_background("blurred", 0.4, home=home)
+            path = home / "layouts/herdr-transparent.json"
+            value = json.loads(path.read_text())
+            self.assertEqual((value["background_mode"], value["workspace_opacity"]), ("blurred", 0.4))
+            self.assertEqual(sorted(p.name for p in home.iterdir()), ["layouts"])
+
 
 if __name__ == "__main__":
     unittest.main()

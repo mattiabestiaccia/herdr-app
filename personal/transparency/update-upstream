@@ -1,0 +1,35 @@
+#!/bin/bash
+# Moves the personal branch onto the latest upstream release tag (or the tag
+# given), runs the checks and stops before installing. Conflicts stop the
+# rebase where git leaves it: resolve, `git rebase --continue`, rerun.
+#
+#   personal/transparency/update-upstream [vX.Y.Z]
+#
+# Then: personal/transparency/install-personal, the 2-minute check in
+# README.md, and `git push --force-with-lease fork personal/transparency`.
+set -euo pipefail
+cd "$(dirname "$0")/../.."
+
+branch=personal/transparency
+[[ $(git branch --show-current) == "$branch" ]] || { echo "Check out $branch first." >&2; exit 1; }
+[[ -z $(git status --porcelain) ]] || { echo "Commit or set aside local changes first." >&2; exit 1; }
+
+git fetch origin --tags
+tag="${1:-$(git tag --list 'v*' --sort=-v:refname | head -1)}"
+base="$(git merge-base HEAD "$tag")"
+if [[ $(git rev-parse "$tag^{commit}") == "$base" ]]; then
+    echo "Already on $tag."
+else
+    before="$(git show "$base:defaults/keys.macos.json")"
+    git rebase --onto "$tag" "$base" "$branch"
+    # Untouched keys.json files migrate only from a known original: if
+    # upstream changed the macOS defaults, record the upstream file as one.
+    if [[ $(git show "$tag:defaults/keys.macos.json") != "$before" ]]; then
+        echo "Upstream changed defaults/keys.macos.json: add $tag's file to SHIPPED_MACOS_KEYS (src/keys.rs)." >&2
+    fi
+    echo "Rebased $branch onto $tag."
+fi
+
+cargo test --locked --bins ${CARGO_FLAGS:-}
+python3 -m unittest discover -s personal/transparency -p 'test_*.py'
+echo "Checks passed. Next: personal/transparency/install-personal"

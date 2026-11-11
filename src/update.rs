@@ -121,8 +121,12 @@ fn checks_app() -> Option<PathBuf> {
 }
 
 /// A release build checks the core; a source build only when pointed at a test release server.
+/// The personal build (`HERDR_PERSONAL`) keeps the core current but never
+/// replaces itself with an official app, which would drop its own patches.
 fn checks_core() -> bool {
-    option_env!("HERDR_APP_RELEASE").is_some() || std::env::var_os("HERDR_RELEASES_URL").is_some()
+    option_env!("HERDR_APP_RELEASE").is_some()
+        || option_env!("HERDR_PERSONAL").is_some()
+        || std::env::var_os("HERDR_RELEASES_URL").is_some()
 }
 
 /// For the settings screen: both programs, what's waiting, when we last looked.

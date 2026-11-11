@@ -1,12 +1,57 @@
 ---
-type: prototype
+type: personal-build
 title: Herdr trasparente per macOS
-status: awaiting-desktop-test
-updated: 2026-11-10
-description: Build personale compilata e firmata; prova della composizione sul desktop e accettazione ancora aperte.
+status: approved
+updated: 2026-11-11
+description: Build personale approvata il 2026-11-11, installata accanto a Herdr ufficiale; procedura per gli aggiornamenti upstream.
 ---
 
 # Herdr trasparente
+
+## Superficie personale (approvata il 2026-11-11)
+
+Ramo `personal/transparency`: ultimo tag upstream più i commit personali.
+Remote `origin` = herdrdev/herdr-app (solo lettura), `fork` =
+mattiabestiaccia/herdr-app (backup del ramo). Il ramo pilota
+`pilot/desktop-transparency` resta come storia del prototipo.
+
+- **App**: `~/Applications/Herdr Personal.app` (bundle `personal.herdr.app`),
+  accanto a `/Applications/Herdr.app`. Stessa home `~/.config/herdr-app` e
+  stesso core: usarne una alla volta. Dopo un periodo di prova si può
+  sostituire l'ufficiale.
+- **Aggiornamenti**: l'app non si aggiorna da sola (resterebbe senza patch);
+  il core sì (`HERDR_PERSONAL` in `src/update.rs`).
+- **Layout**: `~/.config/herdr-app/layouts/herdr-transparent.json`, da
+  scegliere con il cambio layout. Valori:
+  `personal/transparency/prototype.py --home ~/.config/herdr-app set blurred 0.65`
+  e `... image <percorso|desktop>`. Herdr ufficiale ignora le chiavi nuove.
+- **`ctrl-cmd-f`**: il `keys.json` della home reale è personalizzato, quindi
+  non migra da solo. Aggiungere `"ctrl-cmd-f": "window.fullscreen"` alla
+  sezione `global` solo dopo aver lasciato Herdr ufficiale, che non conosce
+  il comando e lo segnalerebbe come errore. Il pulsante verde funziona già.
+
+### Nuova versione upstream
+
+```sh
+personal/transparency/update-upstream          # o: update-upstream v0.1.16
+personal/transparency/install-personal
+git push --force-with-lease fork personal/transparency
+```
+
+`update-upstream` sposta i commit sul tag, avvisa se upstream ha cambiato
+`defaults/keys.macos.json` (in quel caso aggiungere il file del tag a
+`SHIPPED_MACOS_KEYS`) ed esegue i test. Punti delicati nei conflitti:
+`vendor/gpui-pre-macos/src/window.rs` (`toggleFullScreen:`),
+`src/window.rs` (sfondo radice), `src/terminal.rs` (fondo dei terminali).
+`install-personal` conserva l'installazione precedente:
+`install-personal --rollback` la ripristina.
+
+Prova di 2 minuti dopo ogni installazione: layout trasparente in modalità
+`transparent` e `blurred`; schermo intero con scrivania e con immagine;
+`ctrl-cmd-f`/pulsante verde per entrare e uscire; cambio di layout verso
+`main` e ritorno; un TUI (es. `htop`) per i colori di sfondo espliciti.
+
+## Prototipo (storico)
 
 È disponibile una build dimostrativa Apple Silicon compilata offline con Rust
 1.95.0 e Zig 0.16.0. La firma ad hoc del bundle supera `codesign --verify
