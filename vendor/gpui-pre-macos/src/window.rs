@@ -955,7 +955,9 @@ impl MacWindowState {
         if self.is_fullscreen() {
             WindowBounds::Fullscreen(self.fullscreen_restore_bounds)
         } else if let Some(state) = &self.simple_fullscreen_state {
-            WindowBounds::Windowed(state.bounds)
+            // HERDR: full screen on the current Space is still full screen, so
+            // the next start (place.rs) reopens it that way.
+            WindowBounds::Fullscreen(state.bounds)
         } else {
             WindowBounds::Windowed(self.bounds())
         }

@@ -206,6 +206,14 @@ fn main() {
 /// The main window, on a connected core.
 pub fn open_main(core: std::sync::Arc<hc::Core>, requests: async_channel::Receiver<mods::Request>, cx: &mut App) {
             let (window_bounds, display_id) = place::initial(cx);
+            // macOS: a window opened full screen goes to AppKit's own Space
+            // before the layout says whether it is see-through. Open it
+            // windowed and go full screen once the look is applied, so a
+            // see-through layout keeps the desktop (the toggleFullScreen: patch).
+            let (window_bounds, full_screen) = match window_bounds {
+                gpui::WindowBounds::Fullscreen(b) if cfg!(target_os = "macos") => (gpui::WindowBounds::Windowed(b), true),
+                wb => (wb, false),
+            };
             let options = WindowOptions {
                 window_bounds: Some(window_bounds),
                 display_id,
@@ -226,7 +234,11 @@ pub fn open_main(core: std::sync::Arc<hc::Core>, requests: async_channel::Receiv
                 app_id: Some(std::env::var("HERDR_APP_ID").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| "herdr-app".into())),
                 ..Default::default()
             };
-            cx.open_window(options, |window, cx| cx.new(|cx| window::AppWindow::new(core, requests, window, cx)))
+            let handle = cx
+                .open_window(options, |window, cx| cx.new(|cx| window::AppWindow::new(core, requests, window, cx)))
                 .expect("cannot open the Herdr window");
+            if full_screen {
+                let _ = handle.update(cx, |_, window, _| window.toggle_fullscreen());
+            }
             cx.activate(true);
 }
