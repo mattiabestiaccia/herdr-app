@@ -3,6 +3,7 @@
 # beside the official Herdr. Same home (~/.config/herdr-app) and core: use
 # one app at a time. The previous install stays as "Herdr Personal.prev.app"
 # for a one-command rollback:  install-personal --rollback
+# Usage: install-personal [--from <binary> | --rollback]
 set -euo pipefail
 
 [[ $(uname -s) == Darwin ]] || { echo 'This installer requires macOS.' >&2; exit 1; }
@@ -24,9 +25,15 @@ if [[ ${1:-} == --rollback ]]; then
 fi
 
 # HERDR_PERSONAL: the core is kept current, the app never self-updates.
-# CARGO_TARGET_DIR / ZIG may point at an offline build cache.
-HERDR_PERSONAL=1 cargo build --release --locked ${CARGO_FLAGS:-}
-binary="${CARGO_TARGET_DIR:-target}/release/herdr-app"
+# CARGO_TARGET_DIR / ZIG may point at an offline build cache. `--from
+# <binary>` installs a binary already built that way (same commit).
+if [[ ${1:-} == --from ]]; then
+    binary="${2:?--from needs a herdr-app binary}"
+    [[ -x $binary ]] || { echo "Not an executable: $binary" >&2; exit 1; }
+else
+    HERDR_PERSONAL=1 cargo build --release --locked ${CARGO_FLAGS:-}
+    binary="${CARGO_TARGET_DIR:-target}/release/herdr-app"
+fi
 version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
 commit="$(git rev-parse --short HEAD)"
 
@@ -65,5 +72,5 @@ if [[ -d $app ]]; then
     mv "$app" "$prev"
 fi
 mv "$stage" "$app"
-"$lsregister" -f "$app"
+"$lsregister" -f "$app" || echo "Could not register with Launch Services; Finder will find it anyway."
 echo "Installed $app ($version-personal, $commit). Quit Herdr and open Herdr Personal."
